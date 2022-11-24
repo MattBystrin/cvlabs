@@ -1,5 +1,12 @@
+#!/bin/python3
+
 import cv2 as cv
 import argparse
+import math
+from time import process_time as ptime
+
+def dist(p1, p2):
+    return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p1[1])**2)
 
 def pattern_match(template: str, image: str):
     img = cv.imread(image, cv.IMREAD_GRAYSCALE)
@@ -30,14 +37,20 @@ def orb_match(template, image):
 
     # Find matched points on template
     (x1, y1) = imgKP[matches[0].trainIdx].pt
+    train_dist = dist(imgKP[matches[0].trainIdx].pt, imgKP[matches[1].trainIdx].pt)
+    
     (x2, y2) = tplKP[matches[0].queryIdx].pt
-    tl = (int(x1 - x2), int(y1 - y2))
-    br = (tl[0] + w, tl[1] + h)
-    # Need to find scale and rotation to properly
+    query_dist = dist(tplKP[matches[0].queryIdx].pt, tplKP[matches[1].queryIdx].pt)
+
+    scale = train_dist/query_dist
+    print(scale)
+
+    tl = (int(x1 - x2*scale), int(y1 - y2*scale))
+    br = (int(tl[0] + w*scale), int(tl[1] + h*scale))
 
     cv.rectangle(img, tl, br, 255, 2)
 
-    return final_img
+    return img
 
 def main():
     parser = argparse.ArgumentParser(description="Pattern match image search")
@@ -49,18 +62,21 @@ def main():
     parser.add_argument("-g", "--gui", action="store_true", help="Use gui mode")
     args = parser.parse_args()
     output = None
+    start = ptime()
     if args.type == "orb":
         output = orb_match(args.template, args.image)
     else:
         output = pattern_match(args.template, args.image)
+    end = ptime()
 
-    if args.output and output:
+    if args.output:
         cv.imwrite(args.output, output)
 
     if args.gui:
         cv.imshow("result", output)
         while cv.waitKey(0) != 27:
             pass
+    print("time " + args.type + " " + str(end - start))
 
 
 if __name__ == "__main__":
